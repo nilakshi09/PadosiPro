@@ -1,0 +1,36 @@
+# Docker Compose for local development
+# Provides PostgreSQL (database) and Mailpit (email testing)
+# Usage: docker compose up -d
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: padosi
+      POSTGRES_PASSWORD: padosi_local
+      POSTGRES_DB: padosipro
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Wait until postgres is actually ready to accept connections
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U padosi -d padosipro"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Mailpit (local email catcher) ──────────────────────────
+  # Web UI: http://localhost:8025  |  SMTP: localhost:1025
+  # All emails sent by the backend are caught here for testing
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+
+volumes:
+  pgdata:
