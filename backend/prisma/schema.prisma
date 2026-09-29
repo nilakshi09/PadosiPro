@@ -1,5 +1,11 @@
-// Prisma schema for PadosiPro
-// Models will be added in upcoming steps.
+// ────────────────────────────────────────────────────────────────
+// Prisma Schema – PadosiPro
+//
+// This file defines the database models for the PadosiPro
+// neighbourhood task-sharing platform.
+//
+// Models: User, Otp, Task, UserTask
+// ────────────────────────────────────────────────────────────────
 
 generator client {
   provider = "prisma-client-js"
@@ -9,3 +15,94 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+/// Registered user – can be a household member or a local business owner.
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique                // always stored lowercase
+  passwordHash String   @map("password_hash")  // bcrypt hash, never the plain password
+  isVerified   Boolean  @default(false) @map("is_verified")
+  name         String?
+  mobileNumber String?  @map("mobile_number")
+  address      String?
+
+  // businessName is nullable because a household may not run a business.
+  // Only filled in when the user represents or owns a local business.
+  businessName String?  @map("business_name")
+
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
+
+  // A user can have many OTPs (one active at a time, older ones are invalidated)
+  otps         Otp[]
+
+  // Tasks the user has selected from the catalogue
+  userTasks    UserTask[]
+
+  @@map("users") // snake_case table name in Postgres
+}
+
+/// One-Time Password for email verification.
+/// We NEVER store the plain code — only a SHA-256 hash.
+/// See otpService.ts for why SHA-256 over bcrypt.
+model Otp {
+  id           String    @id @default(uuid())
+
+  // Which user this OTP belongs to
+  userId       String    @map("user_id")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // SHA-256 hash of the 6-digit code — never the plaintext
+  codeHash     String    @map("code_hash")
+
+  // When this OTP expires (created + OTP_TTL_MINUTES)
+  expiresAt    DateTime  @map("expires_at")
+
+  // How many incorrect verification attempts have been made
+  attemptsUsed Int       @default(0) @map("attempts_used")
+
+  // Set to now() when successfully verified — null means unconsumed
+  consumedAt   DateTime? @map("consumed_at")
+
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  // Index on userId for fast lookups ("find latest OTP for this user")
+  @@index([userId])
+  @@map("otps") // snake_case table name in Postgres
+}
+
+/// A task that PadosiPro offers — belongs to a category (e.g. "Home Maintenance").
+/// Tasks are seeded from the catalogue; users select which ones they need.
+model Task {
+  id          String   @id @default(uuid())
+  name        String   @unique              // unique so seed can upsert by name
+  category    String                        // e.g. "Home Maintenance"
+  description String                        // short description of the task
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Users who have selected this task
+  userTasks   UserTask[]
+
+  // Index on category for fast grouped queries
+  @@index([category])
+  @@map("tasks")
+}
+
+/// Join table between User and Task.
+/// Tracks which tasks a user has selected.
+model UserTask {
+  id        String   @id @default(uuid())
+
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  taskId    String   @map("task_id")
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // A user can't select the same task twice
+  @@unique([userId, taskId])
+  @@map("user_tasks")
+}
+
