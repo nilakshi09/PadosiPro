@@ -13,7 +13,7 @@
  * - Keyboard: email no auto-capitalize, password secure with toggle
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Keyboard, StyleSheet, Text, View } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { Screen, Logo, Button, TextField, ErrorMessage } from '../../components';
 import { login } from '../../api/authApi';
 import { ApiError } from '../../types/api';
+import { consumeSessionExpiredMessage } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, typography } from '../../theme/theme';
 import type { LoginScreenProps } from '../../navigation/types';
@@ -52,6 +53,16 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Store last form data for retry
   const [lastFormData, setLastFormData] = useState<LoginFormData | null>(null);
+
+  // On mount, check if the user was redirected here due to session expiry.
+  // The UNAUTHORIZED interceptor in client.ts sets this message when it
+  // triggers a forced logout, so we can show a clear explanation.
+  useEffect(() => {
+    const expiredMsg = consumeSessionExpiredMessage();
+    if (expiredMsg) {
+      setAuthError(expiredMsg);
+    }
+  }, []);
 
   const {
     control,

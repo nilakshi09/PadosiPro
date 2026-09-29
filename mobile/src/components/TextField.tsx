@@ -34,7 +34,11 @@ export default function TextField({
   isPassword = false,
   error,
   containerStyle,
-  ...inputProps
+  // Destructure event handlers so they're NOT included in restInputProps
+  // and can't accidentally overwrite the custom wrappers below.
+  onFocus: onFocusProp,
+  onBlur: onBlurProp,
+  ...restInputProps
 }: TextFieldProps) {
   const [isFocused, setIsFocused] = useState(false);
   const [hidePassword, setHidePassword] = useState(true);
@@ -70,13 +74,13 @@ export default function TextField({
           secureTextEntry={isPassword && hidePassword}
           onFocus={(e) => {
             setIsFocused(true);
-            inputProps.onFocus?.(e);
+            onFocusProp?.(e);
           }}
           onBlur={(e) => {
             setIsFocused(false);
-            inputProps.onBlur?.(e);
+            onBlurProp?.(e);
           }}
-          {...inputProps}
+          {...restInputProps}
         />
 
         {/* Password toggle */}

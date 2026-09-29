@@ -33,12 +33,25 @@ function handleApiError(error: unknown): never {
   // Axios errors have a `.response` property with the backend's JSON body
   const axiosError = error as AxiosError<ApiErrorResponse>;
 
+  // Log every failure so it's visible in the Metro/Expo terminal.
+  console.warn('[authApi] Request failed:', axiosError.message, axiosError.code);
+
   if (axiosError.response?.data?.error) {
     // Backend returned a structured error — use it directly
     throw new ApiError(axiosError.response.data.error);
   }
 
-  // Network failure, timeout, or unexpected shape
+  // Timeout / abort (from our AbortController hard timeout or axios timeout)
+  if (axiosError.code === 'ERR_CANCELED' || axiosError.code === 'ECONNABORTED') {
+    throw new ApiError({
+      code: 'TIMEOUT',
+      message:
+        'The request timed out — the server took too long to respond. ' +
+        'Make sure your backend is running and your device is on the same Wi-Fi network.',
+    });
+  }
+
+  // Network failure or unexpected shape
   throw new ApiError({
     code: 'NETWORK_ERROR',
     message: axiosError.message || 'Unable to reach the server. Check your connection and try again.',
