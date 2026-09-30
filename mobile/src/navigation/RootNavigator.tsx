@@ -24,9 +24,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
-import { LoadingSpinner } from '../components';
+import { LoadingSpinner, BackendUrlModal } from '../components';
 import { getProfile } from '../api/profileApi';
 import { getSelection } from '../api/tasksApi';
+import { loadBackendUrl } from '../api/backendUrl';
 import type { AuthStackParamList, AppStackParamList } from './types';
 
 // Auth screens
@@ -88,6 +89,25 @@ function AppNavigator({ initialRoute }: { initialRoute: keyof AppStackParamList 
 export default function RootNavigator() {
   const { state, setUserName } = useAuth();
 
+  // Backend URL state: has the user configured it yet?
+  const [backendUrlReady, setBackendUrlReady] = useState(false);
+  const [showBackendSetup, setShowBackendSetup] = useState(false);
+
+  // Load backend URL from AsyncStorage on mount
+  useEffect(() => {
+    async function initBackendUrl() {
+      const hasSaved = await loadBackendUrl();
+      if (!hasSaved) {
+        // First launch — show the setup modal
+        setShowBackendSetup(true);
+      }
+      // Always mark as ready — the cached URL is now either the saved
+      // value or the default. The setup modal gates interaction separately.
+      setBackendUrlReady(true);
+    }
+    initBackendUrl();
+  }, []);
+
   // Boot check state: which screen should the AppStack start on?
   const [initialRoute, setInitialRoute] = useState<keyof AppStackParamList | null>(null);
   const [bootChecking, setBootChecking] = useState(false);
@@ -106,8 +126,8 @@ export default function RootNavigator() {
    * resolves even if a promise hangs forever.
    */
   useEffect(() => {
-    if (state.isLoading || !state.token) {
-      // Not ready yet or not logged in — reset boot state
+    if (state.isLoading || !state.token || !backendUrlReady) {
+      // Not ready yet, not logged in, or backend URL not loaded yet — reset boot state
       setInitialRoute(null);
       return;
     }
@@ -225,11 +245,24 @@ export default function RootNavigator() {
     //   ref → effect re-fires → repeat forever.
     // We only need to re-run when auth state genuinely changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.isLoading, state.token]);
+  }, [state.isLoading, state.token, backendUrlReady]);
 
-  // Still checking SecureStore for a token — show loading spinner
-  if (state.isLoading) {
+  // Still checking SecureStore for a token, or loading backend URL — show spinner
+  if (state.isLoading || !backendUrlReady) {
     return <LoadingSpinner fullScreen />;
+  }
+
+  // Backend URL setup gate — shown on first launch before auth
+  if (showBackendSetup) {
+    return (
+      <BackendUrlModal
+        visible={true}
+        isSetup={true}
+        onSave={() => {
+          setShowBackendSetup(false);
+        }}
+      />
+    );
   }
 
   // Not logged in — show auth screens

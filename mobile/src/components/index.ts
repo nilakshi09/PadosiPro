@@ -24,3 +24,6 @@ export type { HeaderProps } from './Header';
 
 export { default as Logo } from './Logo';
 export type { LogoProps } from './Logo';
+
+export { default as BackendUrlModal } from './BackendUrlModal';
+export type { BackendUrlModalProps } from './BackendUrlModal';

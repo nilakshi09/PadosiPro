@@ -22,7 +22,7 @@ import {
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Screen, Logo, LoadingSpinner, ErrorMessage, EmptyState } from '../../components';
+import { Screen, Logo, LoadingSpinner, ErrorMessage, EmptyState, BackendUrlModal } from '../../components';
 import { getSelection } from '../../api/tasksApi';
 import { getProfile } from '../../api/profileApi';
 import { ApiError } from '../../types/api';
@@ -47,6 +47,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [sections, setSections] = useState<TaskSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showBackendSettings, setShowBackendSettings] = useState(false);
 
   // ── User's display name ───────────────────────────────────────────────────
   // Prefer the name from AuthContext (set during profile setup in this session).
@@ -181,13 +182,22 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             <Logo size={36} />
             <Text style={styles.appName}>PadosiPro</Text>
           </View>
-          <Pressable
-            onPress={handleLogout}
-            style={styles.logoutButton}
-            hitSlop={8}
-          >
-            <MaterialIcons name="logout" size={22} color={colors.textSecondary} />
-          </Pressable>
+          <View style={styles.topBarRight}>
+            <Pressable
+              onPress={() => setShowBackendSettings(true)}
+              style={styles.logoutButton}
+              hitSlop={8}
+            >
+              <MaterialIcons name="settings" size={22} color={colors.textSecondary} />
+            </Pressable>
+            <Pressable
+              onPress={handleLogout}
+              style={styles.logoutButton}
+              hitSlop={8}
+            >
+              <MaterialIcons name="logout" size={22} color={colors.textSecondary} />
+            </Pressable>
+          </View>
         </View>
 
         {/* Greeting */}
@@ -218,6 +228,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           />
         )}
       </View>
+
+      {/* Backend URL settings modal */}
+      <BackendUrlModal
+        visible={showBackendSettings}
+        onSave={() => {
+          setShowBackendSettings(false);
+          // Reload data with new URL
+          loadData();
+        }}
+        onCancel={() => setShowBackendSettings(false)}
+      />
     </Screen>
   );
 }
@@ -245,6 +266,11 @@ const styles = StyleSheet.create({
     ...typography.h3,
     color: colors.textPrimary,
     marginLeft: spacing.md,
+  },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   logoutButton: {
     padding: spacing.sm,

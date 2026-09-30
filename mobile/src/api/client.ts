@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { getBackendUrl } from './backendUrl';
 
 // ─── Base URL Configuration ─────────────────────────────────────────────────────
 //
@@ -20,7 +21,9 @@ import * as SecureStore from 'expo-secure-store';
 //
 // ─────────────────────────────────────────────────────────────────────────────────
 
-const BASE_URL = 'http://10.46.100.168:3000/api'; // ← UPDATE THIS if your IP changes (run `ipconfig` → Wi-Fi → IPv4)
+// BASE_URL is now dynamic — see src/api/backendUrl.ts
+// Users configure it via the in-app Backend URL setup screen.
+// The value is read from AsyncStorage at startup and cached in memory.
 
 const TOKEN_KEY = 'padosipro_auth_token';
 
@@ -46,7 +49,6 @@ const REQUEST_TIMEOUT_MS = 10_000; // 10 seconds — hard ceiling for any reques
 // ─── Axios Instance ─────────────────────────────────────────────────────────────
 
 const apiClient = axios.create({
-  baseURL: BASE_URL,
   timeout: REQUEST_TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
@@ -60,6 +62,11 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   async (config) => {
+    // ── Dynamic base URL from runtime config ──
+    if (!config.baseURL) {
+      config.baseURL = getBackendUrl();
+    }
+
     // ── Attach auth token ──
     try {
       const token = await SecureStore.getItemAsync(TOKEN_KEY);
@@ -71,6 +78,12 @@ apiClient.interceptors.request.use(
     }
 
     // ── AbortController-based hard timeout ──
+    // IMPORTANT: This must come AFTER all async work (SecureStore read above)
+    // so the full timeout budget goes to the actual HTTP request, not to
+    // awaiting SecureStore. Previously the timer started before the await,
+    // so slow SecureStore reads (common on Android/Expo Go) ate into the
+    // timeout window and the real request got less time than intended.
+    //
     // Only add one if the caller hasn't already provided a signal.
     if (!config.signal) {
       const controller = new AbortController();
@@ -79,11 +92,16 @@ apiClient.interceptors.request.use(
         controller.abort(
           new Error(
             `Request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds. ` +
-            `Check that your backend is running and BASE_URL (${BASE_URL}) is reachable from your device.`,
+            `Check that your backend is running and the configured URL (${getBackendUrl()}) is reachable from your device.`,
           ),
         );
       }, REQUEST_TIMEOUT_MS);
     }
+
+    // ── Diagnostic log — shows the exact URL being hit ──
+    console.log(
+      `[apiClient] → ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`,
+    );
 
     return config;
   },
