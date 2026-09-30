@@ -144,9 +144,33 @@ Tap the **⚙ settings gear icon** in the top-right corner of the **Home** scree
 
 ## Building the APK
 
-### Building the APK
+> **Reviewers:** A pre-built APK is included with the submission — you can skip this section entirely and just install it.
 
-> **See below** — the exact EAS Build commands will be added after the first successful build.
+### Prerequisites
+
+1. Install the EAS CLI globally: `npm install -g eas-cli`
+2. Create a free [Expo account](https://expo.dev/signup) if you don't have one.
+3. Log in: `eas login`
+
+### Build Command
+
+The `eas.json` in `mobile/` already has a **`preview`** profile configured to produce a standalone `.apk`:
+
+```bash
+cd mobile
+eas build --platform android --profile preview
+```
+
+The build runs on Expo's cloud servers and typically takes **5–15 minutes**. When it finishes, the CLI prints a **download URL** for the `.apk` file.
+
+### Network Security Config (Cleartext HTTP)
+
+Android blocks cleartext (plain HTTP) traffic by default in release builds. Because the backend runs on `http://<LAN_IP>:3000` (no HTTPS), the APK needed an explicit opt-in:
+
+- `android/app/src/main/res/xml/network_security_config.xml` — permits cleartext traffic.
+- `android/app/src/main/AndroidManifest.xml` — references the config via `android:networkSecurityConfig` and sets `android:usesCleartextTraffic="true"`.
+
+Without this, the APK would silently fail to reach the local backend. This is intentional for local-network testing per the assignment; a production app would use HTTPS.
 
 ---
 
