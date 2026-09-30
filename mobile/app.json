@@ -10,6 +10,8 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.padosipro.app",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -22,7 +24,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      "./plugins/withNetworkSecurityConfig"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "663c3cc5-7f03-49da-8961-39ca2ca329ba"
+      }
+    }
   }
 }
